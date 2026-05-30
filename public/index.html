@@ -944,11 +944,11 @@
       if (location.protocol === "file:") {
         $("youtubePlayer").innerHTML = `
           <div class="empty">
-            YouTube 现在需要通过网页地址播放。<br>
-            请使用 GitHub Pages 地址，或用本地启动脚本打开。
+            YouTube 现在需要通过本地网页地址播放。<br>
+            请使用本地启动脚本打开 http://127.0.0.1:4173
           </div>
         `;
-        return showToast("请通过网页地址打开，直接打开 HTML 会触发 YouTube error 153");
+        return showToast("请通过本地服务器打开，直接打开 HTML 会触发 YouTube error 153");
       }
       if (!youtubeReady || !window.YT || !YT.Player) {
         $("youtubePlayer").innerHTML = '<div class="empty">正在加载 YouTube 播放器...</div>';
@@ -980,7 +980,7 @@
               $("youtubePlayer").innerHTML = `
                 <div class="empty">
                   YouTube 返回 error 153。<br>
-                  请确认是通过 GitHub Pages 或本地服务器打开，而不是直接打开 HTML 文件。
+                  请确认是通过 http://127.0.0.1:4173 打开，而不是直接打开 HTML 文件。
                 </div>
               `;
               showToast("YouTube error 153：需要本地 HTTP 地址和来源信息");
