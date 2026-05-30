@@ -628,6 +628,10 @@
                   <option value="1.25">1.25x</option>
                   <option value="1.5">1.5x</option>
                 </select>
+                <label style="max-width: 230px; flex: 1 1 190px">
+                  <span>字幕提前 <b id="syncLeadLabel">1.5s</b></span>
+                  <input id="syncLeadRange" type="range" min="0" max="3" step="0.1" value="1.5">
+                </label>
               </div>
 
               <div class="dict-panel lookup-panel">
@@ -787,6 +791,7 @@
     let activeSentenceId = null;
     let loopSentence = false;
     let suppressAutoSyncUntil = 0;
+    let subtitleSyncLeadSeconds = 1.5;
     let previewSubtitles = [];
     let lastLookup = null;
 
@@ -944,11 +949,11 @@
       if (location.protocol === "file:") {
         $("youtubePlayer").innerHTML = `
           <div class="empty">
-            YouTube 现在需要通过本地网页地址播放。<br>
-            请使用本地启动脚本打开 http://127.0.0.1:4173
+            YouTube 现在需要通过网页地址播放。<br>
+            请使用 GitHub Pages 地址，或用本地启动脚本打开。
           </div>
         `;
-        return showToast("请通过本地服务器打开，直接打开 HTML 会触发 YouTube error 153");
+        return showToast("请通过网页地址打开，直接打开 HTML 会触发 YouTube error 153");
       }
       if (!youtubeReady || !window.YT || !YT.Player) {
         $("youtubePlayer").innerHTML = '<div class="empty">正在加载 YouTube 播放器...</div>';
@@ -980,7 +985,7 @@
               $("youtubePlayer").innerHTML = `
                 <div class="empty">
                   YouTube 返回 error 153。<br>
-                  请确认是通过 http://127.0.0.1:4173 打开，而不是直接打开 HTML 文件。
+                  请确认是通过 GitHub Pages 或本地服务器打开，而不是直接打开 HTML 文件。
                 </div>
               `;
               showToast("YouTube error 153：需要本地 HTTP 地址和来源信息");
@@ -996,6 +1001,11 @@
     function playerTime() {
       try { return player && player.getCurrentTime ? player.getCurrentTime() : 0; }
       catch { return 0; }
+    }
+
+    function playerState() {
+      try { return player && player.getPlayerState ? player.getPlayerState() : null; }
+      catch { return null; }
     }
 
     function seekTo(seconds, play = true) {
@@ -1359,13 +1369,23 @@
 
     function highlightByPlayback() {
       if (Date.now() < suppressAutoSyncUntil) return;
-      const time = playerTime();
-      const current = state.subtitles.find((s) => time >= s.start && time < s.end);
+      const current = subtitleForPlaybackTime();
       if (current && current.id !== activeSentenceId) {
         activeSentenceId = current.id;
         renderSentences();
         scrollToActiveSentence("smooth");
       }
+    }
+
+    function subtitleForPlaybackTime() {
+      const time = playerTime();
+      const lead = playerState() === YT.PlayerState.PLAYING ? subtitleSyncLeadSeconds : 0;
+      return findSubtitleAt(time + lead, lead);
+    }
+
+    function findSubtitleAt(time, tolerance = 0) {
+      return state.subtitles.find((s) => time >= s.start && time < s.end)
+        || state.subtitles.find((s) => time < s.start && s.start - time <= tolerance);
     }
 
     async function lookupWord(word, sourceSentenceId = "") {
@@ -1555,6 +1575,11 @@
       showToast(loopSentence ? "已开启单句循环" : "已关闭单句循环");
     });
     $("speedSelect").addEventListener("change", setPlaybackRate);
+    $("syncLeadRange").addEventListener("input", () => {
+      subtitleSyncLeadSeconds = Number($("syncLeadRange").value);
+      $("syncLeadLabel").textContent = `${subtitleSyncLeadSeconds.toFixed(1)}s`;
+      highlightByPlayback();
+    });
 
     $("subtitleFile").addEventListener("change", async (event) => {
       const file = event.target.files[0];
@@ -1819,14 +1844,14 @@ Gosto desta luz porque deixa a cidade com uma cor muito especial.
         const s = getSentence(activeSentenceId);
         if (s && time >= s.end) seekTo(s.start, true);
       } else {
-        const current = state.subtitles.find((s) => time >= s.start && time < s.end);
+        const current = subtitleForPlaybackTime();
         if (current && current.id !== activeSentenceId) {
           activeSentenceId = current.id;
           renderSentences();
           scrollToActiveSentence("smooth");
         }
       }
-    }, 350);
+    }, 60);
 
     window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
     const ytScript = document.createElement("script");
