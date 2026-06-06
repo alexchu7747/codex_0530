@@ -343,11 +343,39 @@
       color: #dce4df;
     }
 
-    #youtubePlayer, #spotifyPlayer, video, iframe {
+    #youtubePlayer, #spotifyPlayer, #audioPlayerBox, video, iframe {
       width: 100%;
       height: 100%;
       border: 0;
       display: block;
+    }
+
+    #audioPlayerBox {
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background:
+        linear-gradient(135deg, rgba(0, 122, 255, .16), rgba(255, 214, 10, .16)),
+        #111;
+    }
+
+    .audio-player-card {
+      width: min(520px, 100%);
+      border: 1px solid rgba(255, 255, 255, .2);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, .94);
+      color: var(--ink);
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .audio-player-card strong {
+      overflow-wrap: anywhere;
+    }
+
+    .audio-player-card audio {
+      width: 100%;
     }
 
     .empty {
@@ -585,6 +613,43 @@
       background: rgba(243, 200, 93, .55);
     }
 
+    .tts-control {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: rgba(255, 255, 255, .82);
+      display: grid;
+      grid-template-columns: auto minmax(170px, 1fr) minmax(150px, .7fr) minmax(150px, .7fr);
+      align-items: end;
+      gap: 10px;
+    }
+
+    .tts-buttons {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tts-control label {
+      min-width: 0;
+    }
+
+    .tts-control label span {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .tts-control input[type="range"] {
+      padding: 0;
+    }
+
+    .tts-control .small {
+      grid-column: 1 / -1;
+      min-height: 18px;
+    }
+
     .cards {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
@@ -764,6 +829,13 @@
       nav button { justify-content: center; }
       .side-note { display: none; }
       .stats { grid-template-columns: repeat(2, 1fr); }
+      .tts-control {
+        grid-template-columns: 1fr 1fr;
+      }
+      .tts-buttons,
+      .tts-control label:first-of-type {
+        grid-column: 1 / -1;
+      }
     }
 
     @media (max-width: 560px) {
@@ -775,6 +847,13 @@
       nav { grid-template-columns: repeat(2, 1fr); }
       .form-grid, .stats { grid-template-columns: 1fr; }
       .toolbar button, .row-actions button { flex: 1; }
+      .tts-control {
+        grid-template-columns: 1fr;
+      }
+      .tts-control label,
+      .tts-buttons {
+        grid-column: 1;
+      }
     }
   </style>
 </head>
@@ -822,7 +901,19 @@
               </div>
 
               <div id="podcastSource" class="hidden">
-                <label><span>Spotify 链接</span><input id="spotifyUrl" placeholder="https://open.spotify.com/episode/..."></label>
+                <div class="mode-tabs">
+                  <button id="spotifyPodcastModeBtn" class="active" data-podcast-mode="spotify">Spotify</button>
+                  <button id="audioPodcastModeBtn" data-podcast-mode="audio">音频文件/直链</button>
+                </div>
+                <div id="spotifyPodcastSource">
+                  <label><span>Spotify 链接</span><input id="spotifyUrl" placeholder="https://open.spotify.com/episode/..."></label>
+                </div>
+                <div id="audioPodcastSource" class="hidden">
+                  <div class="form-grid">
+                    <label><span>音频文件</span><input id="audioFile" type="file" accept="audio/*"></label>
+                    <label><span>音频直链</span><input id="audioUrl" placeholder="https://.../episode.mp3"></label>
+                  </div>
+                </div>
               </div>
 
               <button id="toggleImportBtn" class="import-toggle">字幕导入与清洗</button>
@@ -852,6 +943,13 @@
               <div class="player-box">
                 <div id="youtubePlayer"><div class="empty">粘贴 YouTube 链接后加载视频</div></div>
                 <div id="spotifyPlayer" class="hidden"><div class="empty">粘贴 Spotify 播客链接后加载播放器</div></div>
+                <div id="audioPlayerBox" class="hidden">
+                  <div class="audio-player-card">
+                    <strong id="audioTitle">音频精听</strong>
+                    <audio id="audioPlayer" controls></audio>
+                    <div class="small" id="audioStatus">选择音频文件或填写音频直链后加载</div>
+                  </div>
+                </div>
               </div>
 
               <div class="row-actions">
@@ -914,9 +1012,21 @@
               <input id="articleFile" type="file" accept=".txt,text/plain">
               <div class="row-actions">
                 <button id="renderArticleBtn">排版阅读</button>
+                <button id="speakArticleBtn" class="primary">朗读文本</button>
                 <button id="translateSelectionBtn">翻译选中</button>
                 <button id="aiExplainSelectionBtn">AI 解释选中</button>
                 <button id="saveSelectionBtn">保存选中</button>
+              </div>
+              <div class="tts-control" id="ttsControl">
+                <div class="tts-buttons">
+                  <button id="pauseTtsBtn">暂停</button>
+                  <button id="resumeTtsBtn">继续</button>
+                  <button id="stopTtsBtn">停止</button>
+                </div>
+                <label><span>语音</span><select id="ttsVoiceSelect"></select></label>
+                <label><span>语速 <b id="ttsRateLabel">1.0x</b></span><input id="ttsRateRange" type="range" min="0.6" max="1.5" step="0.1" value="1"></label>
+                <label><span>音量 <b id="ttsVolumeLabel">100%</b></span><input id="ttsVolumeRange" type="range" min="0" max="1" step="0.05" value="1"></label>
+                <div class="small" id="ttsStatus">朗读会优先使用选中的文字。</div>
               </div>
               <div id="articleView" class="article-view">文章会显示在这里，单词可点击，选中短语或句子可查词、翻译、保存。</div>
             </div>
@@ -1012,12 +1122,17 @@
     let player = null;
     let youtubeReady = false;
     let mediaMode = "video";
+    let podcastMode = state.podcast.mode || "spotify";
+    let audioObjectUrl = "";
     let activeSentenceId = null;
     let loopSentence = false;
     let suppressAutoSyncUntil = 0;
     let subtitleSyncLeadSeconds = 1.5;
     let previewSubtitles = [];
     let lastLookup = null;
+    let ttsUtterance = null;
+    let ttsVoices = [];
+    let ttsStatusTimer = null;
 
     const miniDict = {
       "a": "定冠词/介词：阴性单数；也可表示 to 的缩合部分",
@@ -1091,7 +1206,7 @@
           batchLimit: 80
         },
         video: { title: "", url: "", youtubeId: "" },
-        podcast: { title: "", url: "", embedUrl: "" },
+        podcast: { title: "", url: "", embedUrl: "", mode: "spotify", audioUrl: "", fileName: "" },
         subtitles: [],
         articles: [],
         corpus: [],
@@ -1181,29 +1296,117 @@
       }
     }
 
+    function isAudioPodcastMode() {
+      return mediaMode === "podcast" && podcastMode === "audio";
+    }
+
+    function hasControlledPlayback() {
+      if (mediaMode === "video") return Boolean(player);
+      if (isAudioPodcastMode()) return Boolean($("audioPlayer").src);
+      return false;
+    }
+
+    function isPlaybackPlaying() {
+      if (mediaMode === "video") return Boolean(window.YT?.PlayerState && playerState() === YT.PlayerState.PLAYING);
+      if (isAudioPodcastMode()) {
+        const audio = $("audioPlayer");
+        return Boolean(audio.src && !audio.paused && !audio.ended);
+      }
+      return false;
+    }
+
+    function updateMediaControls() {
+      const canControlTimeline = mediaMode === "video" || isAudioPodcastMode();
+      $("playPauseBtn").disabled = !canControlTimeline;
+      $("loopSentenceBtn").disabled = !canControlTimeline;
+      $("speedSelect").disabled = !canControlTimeline;
+      $("syncLeadRange").disabled = !canControlTimeline;
+      if (!canControlTimeline) {
+        loopSentence = false;
+        $("loopSentenceBtn").classList.remove("primary");
+      }
+    }
+
+    function setPodcastMode(mode) {
+      if (mode !== "audio") $("audioPlayer").pause();
+      podcastMode = mode;
+      state.podcast.mode = mode;
+      $("spotifyPodcastModeBtn").classList.toggle("active", mode === "spotify");
+      $("audioPodcastModeBtn").classList.toggle("active", mode === "audio");
+      $("spotifyPodcastSource").classList.toggle("hidden", mode !== "spotify");
+      $("audioPodcastSource").classList.toggle("hidden", mode !== "audio");
+      if (mediaMode === "podcast") {
+        $("spotifyPlayer").classList.toggle("hidden", mode !== "spotify");
+        $("audioPlayerBox").classList.toggle("hidden", mode !== "audio");
+        $("loadMediaBtn").textContent = mode === "audio" ? "加载音频" : "加载播客";
+      }
+      updateMediaControls();
+      saveState(false);
+    }
+
+    function currentStudySource() {
+      if (mediaMode === "podcast") return state.podcast.title || "播客精听";
+      return state.video.title || "视频精听";
+    }
+
     function setMediaMode(mode) {
+      if (mode !== "video" && player?.pauseVideo) player.pauseVideo();
+      if (!(mode === "podcast" && podcastMode === "audio")) $("audioPlayer").pause();
       mediaMode = mode;
       $("videoModeBtn").classList.toggle("active", mode === "video");
       $("podcastModeBtn").classList.toggle("active", mode === "podcast");
       $("videoSource").classList.toggle("hidden", mode !== "video");
       $("podcastSource").classList.toggle("hidden", mode !== "podcast");
       $("youtubePlayer").classList.toggle("hidden", mode !== "video");
-      $("spotifyPlayer").classList.toggle("hidden", mode !== "podcast");
-      $("loadMediaBtn").textContent = mode === "video" ? "加载视频" : "加载播客";
-      $("playPauseBtn").disabled = mode === "podcast";
-      $("speedSelect").disabled = mode === "podcast";
-      $("syncLeadRange").disabled = mode === "podcast";
-      if (mode === "podcast") showToast("Spotify 嵌入播放器由 Spotify 控制，字幕句子可高亮和做笔记");
+      $("spotifyPlayer").classList.toggle("hidden", !(mode === "podcast" && podcastMode === "spotify"));
+      $("audioPlayerBox").classList.toggle("hidden", !(mode === "podcast" && podcastMode === "audio"));
+      $("loadMediaBtn").textContent = mode === "video" ? "加载视频" : (podcastMode === "audio" ? "加载音频" : "加载播客");
+      if ($("listen").classList.contains("active")) $("viewTitle").textContent = mode === "video" ? "视频精听" : "播客精听";
+      updateMediaControls();
+      if (mode === "podcast" && podcastMode === "spotify") showToast("Spotify 嵌入播放器由 Spotify 控制；需要跳句和倍速时可切到音频文件/直链");
     }
 
     function loadPodcastPlayer() {
       const url = $("spotifyUrl").value.trim();
       const embedUrl = spotifyEmbedUrl(url);
       if (!embedUrl) return showToast("没有识别到 Spotify 播客链接");
-      state.podcast = { title: "Spotify 播客", url, embedUrl };
+      state.podcast = { ...state.podcast, title: "Spotify 播客", mode: "spotify", url, embedUrl };
       saveState(false);
       $("spotifyPlayer").innerHTML = `<iframe src="${escapeHtml(embedUrl)}" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`;
       showToast("播客已加载");
+    }
+
+    function setAudioSource(src, title, status) {
+      const audio = $("audioPlayer");
+      audio.src = src;
+      audio.load();
+      $("audioTitle").textContent = title || "音频精听";
+      $("audioStatus").textContent = status || "音频已加载";
+      setPlaybackRate();
+    }
+
+    function loadPodcastAudio() {
+      const file = $("audioFile").files[0];
+      const directUrl = $("audioUrl").value.trim();
+      if (!file && !directUrl) return showToast("请选择音频文件，或填写音频直链");
+
+      if (audioObjectUrl) URL.revokeObjectURL(audioObjectUrl);
+      audioObjectUrl = "";
+
+      const src = file ? URL.createObjectURL(file) : directUrl;
+      if (file) audioObjectUrl = src;
+
+      const title = file?.name || directUrl.split("/").pop()?.split("?")[0] || "音频精听";
+      setAudioSource(src, title, file ? "本地音频已加载" : "音频直链已加载");
+      state.podcast = {
+        ...state.podcast,
+        mode: "audio",
+        title,
+        audioUrl: file ? "" : directUrl,
+        fileName: file?.name || ""
+      };
+      saveState(false);
+      showToast("音频已加载，可以使用精听控制");
     }
 
     function onYouTubeIframeAPIReady() {
@@ -1266,9 +1469,27 @@
     }
 
     function playerTime() {
-      if (mediaMode !== "video") return 0;
-      try { return player && player.getCurrentTime ? player.getCurrentTime() : 0; }
-      catch { return 0; }
+      if (mediaMode === "video") {
+        try { return player && player.getCurrentTime ? player.getCurrentTime() : 0; }
+        catch { return 0; }
+      }
+      if (isAudioPodcastMode()) {
+        const audio = $("audioPlayer");
+        return audio.src ? audio.currentTime || 0 : 0;
+      }
+      return 0;
+    }
+
+    function playerDuration() {
+      if (mediaMode === "video") {
+        try { return player && player.getDuration ? player.getDuration() : 0; }
+        catch { return 0; }
+      }
+      if (isAudioPodcastMode()) {
+        const duration = $("audioPlayer").duration;
+        return Number.isFinite(duration) ? duration : 0;
+      }
+      return 0;
     }
 
     function playerState() {
@@ -1278,14 +1499,30 @@
     }
 
     function seekTo(seconds, play = true) {
-      if (mediaMode !== "video") return;
-      if (!player || !player.seekTo) return;
-      player.seekTo(Math.max(0, seconds || 0), true);
-      if (play && player.playVideo) player.playVideo();
+      const target = Math.max(0, seconds || 0);
+      if (mediaMode === "video") {
+        if (!player || !player.seekTo) return;
+        player.seekTo(target, true);
+        if (play && player.playVideo) player.playVideo();
+        return;
+      }
+      if (isAudioPodcastMode()) {
+        const audio = $("audioPlayer");
+        if (!audio.src) return showToast("请先加载音频");
+        audio.currentTime = Math.min(target, playerDuration() || target);
+        if (play) audio.play().catch(() => showToast("浏览器需要你先手动点击播放一次"));
+      }
     }
 
     function playPause() {
-      if (mediaMode !== "video") return showToast("播客播放请使用 Spotify 播放器里的按钮");
+      if (isAudioPodcastMode()) {
+        const audio = $("audioPlayer");
+        if (!audio.src) return showToast("请先加载音频");
+        if (audio.paused) audio.play().catch(() => showToast("浏览器需要你先手动点击播放一次"));
+        else audio.pause();
+        return;
+      }
+      if (mediaMode !== "video") return showToast("Spotify 播放请使用播放器内按钮；音频文件/直链支持精听控制");
       if (!player || !player.getPlayerState) return;
       const status = player.getPlayerState();
       if (status === YT.PlayerState.PLAYING) player.pauseVideo();
@@ -1293,9 +1530,13 @@
     }
 
     function setPlaybackRate() {
-      if (mediaMode !== "video") return;
-      if (!player || !player.setPlaybackRate) return;
-      player.setPlaybackRate(Number($("speedSelect").value));
+      const rate = Number($("speedSelect").value);
+      if (mediaMode === "video") {
+        if (!player || !player.setPlaybackRate) return;
+        player.setPlaybackRate(rate);
+        return;
+      }
+      if (isAudioPodcastMode()) $("audioPlayer").playbackRate = rate;
     }
 
     function parseSubtitle(raw, options) {
@@ -1625,7 +1866,8 @@
       if (!sentence) return;
       activeSentenceId = id;
       suppressAutoSyncUntil = Date.now() + 900;
-      if (mediaMode === "video") seekTo(sentence.start, play);
+      if (mediaMode === "video" || isAudioPodcastMode()) seekTo(sentence.start, play);
+      else if (play) showToast("Spotify 不能由外部按钮跳句；已切到当前句卡");
       renderSentences();
       scrollToActiveSentence("smooth");
     }
@@ -1654,7 +1896,7 @@
 
     function subtitleForPlaybackTime() {
       const time = playerTime();
-      const lead = playerState() === YT.PlayerState.PLAYING ? subtitleSyncLeadSeconds : 0;
+      const lead = isPlaybackPlaying() ? subtitleSyncLeadSeconds : 0;
       return findSubtitleAt(time + lead, lead);
     }
 
@@ -1821,13 +2063,159 @@
       }
     }
 
+    function supportsTextToSpeech() {
+      return "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+    }
+
+    function readableArticleText() {
+      return (selectedText() || $("articleInput").value).replace(/\s+/g, " ").trim();
+    }
+
+    function setTtsStatus(message, temporary = false) {
+      $("ttsStatus").textContent = message;
+      if (ttsStatusTimer) clearTimeout(ttsStatusTimer);
+      if (temporary) {
+        ttsStatusTimer = setTimeout(() => updateTtsControls(), 2200);
+      }
+    }
+
+    function updateTtsControls(status = "") {
+      const supported = supportsTextToSpeech();
+      const synth = supported ? window.speechSynthesis : null;
+      const speaking = Boolean(synth?.speaking);
+      const paused = Boolean(synth?.paused);
+      $("speakArticleBtn").disabled = !supported;
+      $("pauseTtsBtn").disabled = !supported || !speaking || paused;
+      $("resumeTtsBtn").disabled = !supported || !paused;
+      $("stopTtsBtn").disabled = !supported || !speaking;
+      $("ttsVoiceSelect").disabled = !supported || !ttsVoices.length;
+      $("ttsRateLabel").textContent = `${Number($("ttsRateRange").value).toFixed(1)}x`;
+      $("ttsVolumeLabel").textContent = `${Math.round(Number($("ttsVolumeRange").value) * 100)}%`;
+      if (status) {
+        setTtsStatus(status);
+      } else if (!supported) {
+        setTtsStatus("当前浏览器不支持文本转语音。");
+      } else if (paused) {
+        setTtsStatus("已暂停朗读。");
+      } else if (speaking) {
+        setTtsStatus("正在朗读。");
+      } else {
+        setTtsStatus("朗读会优先使用选中的文字。");
+      }
+    }
+
+    function populateTtsVoices() {
+      if (!supportsTextToSpeech()) {
+        $("ttsVoiceSelect").innerHTML = '<option value="">不支持文本转语音</option>';
+        updateTtsControls();
+        return;
+      }
+      const previous = $("ttsVoiceSelect").value;
+      const voices = window.speechSynthesis.getVoices();
+      const portuguese = voices.filter((voice) => /^pt[-_]/i.test(voice.lang || ""));
+      const others = voices.filter((voice) => !/^pt[-_]/i.test(voice.lang || ""));
+      ttsVoices = [...portuguese, ...others];
+      $("ttsVoiceSelect").innerHTML = [
+        '<option value="">自动葡语</option>',
+        ...ttsVoices.map((voice) => {
+          const value = `${voice.name}||${voice.lang}`;
+          const label = `${voice.name} (${voice.lang || "未知"})`;
+          return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+        })
+      ].join("");
+      if (previous && ttsVoices.some((voice) => `${voice.name}||${voice.lang}` === previous)) {
+        $("ttsVoiceSelect").value = previous;
+      }
+      updateTtsControls();
+    }
+
+    function selectedTtsVoice() {
+      const selected = $("ttsVoiceSelect").value;
+      if (selected) {
+        const voice = ttsVoices.find((item) => `${item.name}||${item.lang}` === selected);
+        if (voice) return voice;
+      }
+      return ttsVoices.find((voice) => /^pt-PT/i.test(voice.lang || ""))
+        || ttsVoices.find((voice) => /^pt-BR/i.test(voice.lang || ""))
+        || ttsVoices.find((voice) => /^pt[-_]/i.test(voice.lang || ""))
+        || null;
+    }
+
+    function speakArticleText() {
+      if (!supportsTextToSpeech()) {
+        showToast("当前浏览器不支持文本转语音");
+        updateTtsControls();
+        return;
+      }
+      const text = readableArticleText();
+      if (!text) return showToast("文章为空");
+      window.speechSynthesis.cancel();
+      ttsUtterance = new SpeechSynthesisUtterance(text);
+      const voice = selectedTtsVoice();
+      if (voice) {
+        ttsUtterance.voice = voice;
+        ttsUtterance.lang = voice.lang || "pt-PT";
+      } else {
+        ttsUtterance.lang = "pt-PT";
+      }
+      ttsUtterance.rate = Number($("ttsRateRange").value);
+      ttsUtterance.volume = Number($("ttsVolumeRange").value);
+      ttsUtterance.pitch = 1;
+      const utterance = ttsUtterance;
+      ttsUtterance.onstart = () => {
+        if (ttsUtterance === utterance) updateTtsControls("正在朗读。");
+      };
+      ttsUtterance.onpause = () => {
+        if (ttsUtterance === utterance) updateTtsControls("已暂停朗读。");
+      };
+      ttsUtterance.onresume = () => {
+        if (ttsUtterance === utterance) updateTtsControls("正在朗读。");
+      };
+      ttsUtterance.onend = () => {
+        if (ttsUtterance !== utterance) return;
+        ttsUtterance = null;
+        updateTtsControls("朗读已结束。");
+      };
+      ttsUtterance.onerror = () => {
+        if (ttsUtterance !== utterance) return;
+        ttsUtterance = null;
+        updateTtsControls("朗读中断，请换一个系统语音再试。");
+      };
+      window.speechSynthesis.speak(ttsUtterance);
+      updateTtsControls("正在准备朗读。");
+      setTimeout(() => {
+        if (ttsUtterance === utterance && !window.speechSynthesis.speaking) {
+          updateTtsControls("浏览器正在加载朗读；如果没有声音，请再点一次或换一个系统语音。");
+        }
+      }, 1200);
+    }
+
+    function pauseTts() {
+      if (!supportsTextToSpeech() || !window.speechSynthesis.speaking) return;
+      window.speechSynthesis.pause();
+      updateTtsControls();
+    }
+
+    function resumeTts() {
+      if (!supportsTextToSpeech() || !window.speechSynthesis.paused) return;
+      window.speechSynthesis.resume();
+      updateTtsControls();
+    }
+
+    function stopTts(showMessage = true) {
+      if (!supportsTextToSpeech()) return;
+      window.speechSynthesis.cancel();
+      ttsUtterance = null;
+      updateTtsControls(showMessage ? "已停止朗读。" : "");
+    }
+
     document.querySelectorAll("nav button").forEach((btn) => {
       btn.addEventListener("click", () => {
         document.querySelectorAll("nav button").forEach((b) => b.classList.remove("active"));
         document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
         btn.classList.add("active");
         $(btn.dataset.view).classList.add("active");
-        const titles = { listen: "视频精听", read: "文章精读", corpus: "基础语料库", settings: "设置" };
+        const titles = { listen: mediaMode === "podcast" ? "播客精听" : "视频精听", read: "文章精读", corpus: "基础语料库", settings: "设置" };
         $("viewTitle").textContent = titles[btn.dataset.view];
         $("appShell").classList.toggle("listen-mode", btn.dataset.view === "listen");
       });
@@ -1843,7 +2231,10 @@
     });
 
     $("loadMediaBtn").addEventListener("click", () => {
-      if (mediaMode === "podcast") return loadPodcastPlayer();
+      if (mediaMode === "podcast") {
+        if (podcastMode === "audio") return loadPodcastAudio();
+        return loadPodcastPlayer();
+      }
       const url = $("youtubeUrl").value.trim();
       const youtubeId = extractYouTubeId(url);
       state.video = { title: "YouTube 视频", url, youtubeId };
@@ -1860,6 +2251,11 @@
       showToast(loopSentence ? "已开启单句循环" : "已关闭单句循环");
     });
     $("speedSelect").addEventListener("change", setPlaybackRate);
+    $("spotifyPodcastModeBtn").addEventListener("click", () => setPodcastMode("spotify"));
+    $("audioPodcastModeBtn").addEventListener("click", () => setPodcastMode("audio"));
+    $("audioPlayer").addEventListener("play", highlightByPlayback);
+    $("audioPlayer").addEventListener("pause", highlightByPlayback);
+    $("audioPlayer").addEventListener("error", () => showToast("音频无法播放，请换成本地文件或可直接访问的音频链接"));
     $("syncLeadRange").addEventListener("input", () => {
       subtitleSyncLeadSeconds = Number($("syncLeadRange").value);
       $("syncLeadLabel").textContent = `${subtitleSyncLeadSeconds.toFixed(1)}s`;
@@ -1950,6 +2346,21 @@
 
     $("renderArticleBtn").addEventListener("click", renderArticle);
     $("articleInput").addEventListener("input", renderArticle);
+    $("speakArticleBtn").addEventListener("click", speakArticleText);
+    $("pauseTtsBtn").addEventListener("click", pauseTts);
+    $("resumeTtsBtn").addEventListener("click", resumeTts);
+    $("stopTtsBtn").addEventListener("click", () => stopTts(true));
+    $("ttsRateRange").addEventListener("input", () => {
+      updateTtsControls();
+      if (window.speechSynthesis?.speaking) setTtsStatus("语速会在下次朗读时生效。", true);
+    });
+    $("ttsVolumeRange").addEventListener("input", () => {
+      updateTtsControls();
+      if (window.speechSynthesis?.speaking) setTtsStatus("音量会在下次朗读时生效。", true);
+    });
+    $("ttsVoiceSelect").addEventListener("change", () => {
+      if (window.speechSynthesis?.speaking) setTtsStatus("语音会在下次朗读时生效。", true);
+    });
 
     $("articleView").addEventListener("click", (event) => {
       const word = event.target.dataset.word;
@@ -2014,7 +2425,7 @@
           term: saveTerm,
           meaning: $("manualMeaning").value,
           context: lastLookup?.sentence?.pt || "",
-          source: state.video.title || $("articleTitle").value || "查词",
+          source: lastLookup?.sentence ? currentStudySource() : ($("articleTitle").value || "查词"),
           time: lastLookup?.sentence?.start,
           type: "词语"
         });
@@ -2029,7 +2440,7 @@
         term: $("manualTerm").value,
         meaning: $("manualMeaning").value,
         context: lastLookup?.sentence?.pt || "",
-        source: state.video.title || $("articleTitle").value || "手动",
+        source: lastLookup?.sentence ? currentStudySource() : ($("articleTitle").value || "手动"),
         time: lastLookup?.sentence?.start,
         type: "词语"
       });
@@ -2122,7 +2533,7 @@ Gosto desta luz porque deixa a cidade com uma cor muito especial.
     });
 
     setInterval(() => {
-      if (!player || !state.subtitles.length) return;
+      if (!hasControlledPlayback() || !state.subtitles.length) return;
       if (Date.now() < suppressAutoSyncUntil) return;
       const time = playerTime();
       if (loopSentence && activeSentenceId) {
@@ -2145,10 +2556,23 @@ Gosto desta luz porque deixa a cidade com uma cor muito especial.
 
     $("youtubeUrl").value = state.video.url || "";
     $("spotifyUrl").value = state.podcast.url || "";
+    $("audioUrl").value = state.podcast.audioUrl || "";
     if (state.podcast.embedUrl) {
       $("spotifyPlayer").innerHTML = `<iframe src="${escapeHtml(state.podcast.embedUrl)}" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`;
     }
+    if (state.podcast.audioUrl) {
+      setAudioSource(state.podcast.audioUrl, state.podcast.title || "音频精听", "音频直链已恢复");
+    } else if (state.podcast.fileName) {
+      $("audioTitle").textContent = state.podcast.fileName;
+      $("audioStatus").textContent = "本地音频需要重新选择文件";
+    }
+    setPodcastMode(state.podcast.mode || "spotify");
     setMediaMode("video");
+    populateTtsVoices();
+    if (supportsTextToSpeech()) {
+      window.speechSynthesis.addEventListener("voiceschanged", populateTtsVoices);
+      window.addEventListener("beforeunload", () => stopTts(false));
+    }
     renderArticle();
     renderAll();
   </script>
